@@ -1,0 +1,9 @@
+#ignore pkl files
+*.pkl
+
+#ignore specific files
+.venv/
+venv/
+env/
+books/
+saved_model/

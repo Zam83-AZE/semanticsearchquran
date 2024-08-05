@@ -1,0 +1,12 @@
+numpy
+nltk~=3.8.1
+pymorphy3~=2.0.2
+tqdm~=4.66.5
+scikit-learn
+PyPDF2~=3.0.1
+python-docx
+textract
+sentence-transformers
+transformers~=4.43.3
+rank_bm25
+torch~=2.4.0
