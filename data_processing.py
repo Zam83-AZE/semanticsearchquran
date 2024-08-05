@@ -8,6 +8,8 @@ from functools import partial
 from utils import get_file_hash, timeit
 import logging
 from collections import defaultdict
+from search_engines import SemanticSearchEngine
+import numpy as np
 
 
 def read_pdf(file_path):
@@ -80,13 +82,18 @@ def list_available_documents(directory, processed_books):
 
 @timeit
 def process_selected_books(directory, selected_books, embeddings_file, book_record_file):
-    from search_engines import SemanticSearchEngine
-
     processed_books = load_processed_books(book_record_file)
     all_blocks = []
     sentence_counts = defaultdict(int)
     new_or_modified_books = False
     total_sentences = 0
+
+    # Load existing embeddings if available
+    if os.path.exists(embeddings_file):
+        with open(embeddings_file, 'rb') as f:
+            existing_blocks, existing_embeddings = pickle.load(f)
+    else:
+        existing_blocks, existing_embeddings = [], []
 
     with ProcessPoolExecutor() as executor:
         results = list(tqdm(executor.map(partial(process_file, directory=directory, processed_books=processed_books),
@@ -102,20 +109,33 @@ def process_selected_books(directory, selected_books, embeddings_file, book_reco
                 processed_books[filename] = file_hash
             total_sentences += sentence_count
 
-    if new_or_modified_books or not os.path.exists(embeddings_file):
-        logging.info("Creating new embeddings")
+    if new_or_modified_books or not existing_blocks:
+        logging.info("Creating new embeddings for new or modified books")
         engine = SemanticSearchEngine(all_blocks)
-        block_embeddings = engine.block_embeddings.cpu().numpy()
+        new_block_embeddings = engine.block_embeddings.cpu().numpy()
+
+        # Combine existing and new data
+        combined_blocks = existing_blocks + all_blocks
+
+        # Check if existing_embeddings is empty
+        if isinstance(existing_embeddings, np.ndarray):
+            is_empty = existing_embeddings.size == 0
+        else:
+            is_empty = len(existing_embeddings) == 0
+
+        if not is_empty:
+            combined_embeddings = np.vstack([existing_embeddings, new_block_embeddings])
+        else:
+            combined_embeddings = new_block_embeddings
+
         save_processed_books(processed_books, book_record_file)
         with open(embeddings_file, 'wb') as f:
-            pickle.dump((all_blocks, block_embeddings), f)
+            pickle.dump((combined_blocks, combined_embeddings), f)
     else:
-        logging.info("Loading existing embeddings")
-        with open(embeddings_file, 'rb') as f:
-            all_blocks, block_embeddings = pickle.load(f)
+        logging.info("No new books to process, using existing embeddings")
+        combined_blocks, combined_embeddings = existing_blocks, existing_embeddings
 
-    return all_blocks, block_embeddings, sentence_counts, processed_books, total_sentences
-
+    return combined_blocks, combined_embeddings, sentence_counts, processed_books, total_sentences
 
 def load_processed_books(book_record_file):
     if os.path.exists(book_record_file):
