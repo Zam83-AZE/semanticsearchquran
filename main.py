@@ -54,7 +54,7 @@ class SemanticSearchApp:
 
                 # Обновление движков поиска с учетом новых данных
                 self.basic_engine = SemanticSearchEngine(self.all_blocks, precomputed_embeddings=block_embeddings)
-                self.advanced_engine = AdvancedSemanticSearchEngine([block[0] for block in self.all_blocks])
+                #self.advanced_engine = AdvancedSemanticSearchEngine([block[0] for block in self.all_blocks])
 
         return True  # Инициализация всегда успешна, даже если нет новых книг
 
